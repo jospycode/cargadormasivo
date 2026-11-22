@@ -26,7 +26,12 @@
   </div>
 
   <script>
-    const API_BASE = 'http://127.0.0.1:4000';
+    const isLocal =
+      window.location.hostname === '127.0.0.1' ||
+      window.location.hostname === 'localhost' ||
+      window.location.protocol === 'file:';
+
+    const API_BASE = isLocal ? 'http://127.0.0.1:4000' : '';
     const batchId = `lote_${Date.now()}`;
 
     function log(msg) {
@@ -47,7 +52,6 @@
       const uploadedFiles = [];
 
       try {
-        // 1. Subir cada archivo a la API en Python
         for (let i = 0; i < files.length; i++) {
           log(`Subiendo (${i + 1}/${files.length}): ${files[i].name}...`);
           const formData = new FormData();
@@ -64,7 +68,6 @@
           uploadedFiles.push({ name: data.name, url: data.url });
         }
 
-        // 2. Pedir al servidor la creación y descarga directa del archivo ZIP
         log('Todos los archivos subidos. Generando archivo ZIP...');
         const zipRes = await fetch(`${API_BASE}/api/create-zip`, {
           method: 'POST',
@@ -85,8 +88,6 @@
 
         log('¡Éxito!\nEnlace ZIP:\n');
         document.getElementById('status').appendChild(link);
-        
-        // Disparar la descarga automática
         link.click();
 
       } catch (err) {
