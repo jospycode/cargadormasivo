@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cargador Masivo & Generador ZIP</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; padding: 20px; }
+    .card { max-width: 500px; margin: 0 auto; background: #1e293b; padding: 20px; border-radius: 8px; }
+    input[type="file"] { margin-bottom: 12px; }
+    button { background: #3b82f6; color: white; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; }
+    button:disabled { background: #64748b; }
+    .log { margin-top: 15px; font-size: 0.9em; white-space: pre-wrap; background: #0f172a; padding: 10px; border-radius: 4px; }
+    a { color: #38bdf8; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h2>Subir archivos y crear ZIP</h2>
+    <input type="file" id="fileInput" multiple />
+    <br />
+    <button id="uploadBtn" onclick="processUploads()">Iniciar Subida y Generar ZIP</button>
+
+    <div id="status" class="log">Listo para seleccionar archivos.</div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://127.0.0.1:4000';
+    const batchId = `lote_${Date.now()}`;
+
+    function log(msg) {
+      document.getElementById('status').innerText = msg;
+    }
+
+    async function processUploads() {
+      const input = document.getElementById('fileInput');
+      const files = Array.from(input.files || []);
+      const btn = document.getElementById('uploadBtn');
+
+      if (!files.length) {
+        alert('Por favor selecciona al menos un archivo.');
+        return;
+      }
+
+      btn.disabled = true;
+      const uploadedFiles = [];
+
+      try {
+        // 1. Subir cada archivo a la API en Python
+        for (let i = 0; i < files.length; i++) {
+          log(`Subiendo (${i + 1}/${files.length}): ${files[i].name}...`);
+          const formData = new FormData();
+          formData.append('batchId', batchId);
+          formData.append('file', files[i]);
+
+          const res = await fetch(`${API_BASE}/api/upload`, {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!res.ok) throw new Error(`Error en subida de ${files[i].name}`);
+          const data = await res.json();
+          uploadedFiles.push({ name: data.name, url: data.url });
+        }
+
+        // 2. Pedir al servidor la creación y descarga directa del archivo ZIP
+        log('Todos los archivos subidos. Generando archivo ZIP...');
+        const zipRes = await fetch(`${API_BASE}/api/create-zip`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ batchId, files: uploadedFiles }),
+        });
+
+        if (!zipRes.ok) throw new Error('Error generando el archivo ZIP.');
+
+        const zipBlob = await zipRes.blob();
+        const zipFileName = `${batchId}.zip`;
+        const blobUrl = URL.createObjectURL(zipBlob);
+
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = zipFileName;
+        link.innerText = `Descargar ${zipFileName}`;
+
+        log('¡Éxito!\nEnlace ZIP:\n');
+        document.getElementById('status').appendChild(link);
+        
+        // Disparar la descarga automática
+        link.click();
+
+      } catch (err) {
+        log(`Error: ${err.message}`);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
