@@ -5,24 +5,221 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cargador Masivo & Generador ZIP</title>
   <style>
-    body { font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; padding: 20px; }
-    .card { max-width: 500px; margin: 0 auto; background: #1e293b; padding: 20px; border-radius: 8px; }
-    input[type="file"] { margin-bottom: 12px; }
-    button { background: #3b82f6; color: white; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; }
-    button:disabled { background: #64748b; }
-    .log { margin-top: 15px; font-size: 0.9em; white-space: pre-wrap; background: #0f172a; padding: 10px; border-radius: 4px; }
-    a { color: #38bdf8; }
+    :root {
+      --bg-color: #0f172a;
+      --card-bg: #1e293b;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --success: #10b981;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border-color: #334155;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 540px;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .drop-zone {
+      border: 2px dashed var(--border-color);
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      background: rgba(15, 23, 42, 0.4);
+      transition: all 0.2s ease;
+      cursor: pointer;
+      margin-bottom: 20px;
+    }
+
+    .drop-zone:hover {
+      border-color: var(--accent);
+      background: rgba(59, 130, 246, 0.05);
+    }
+
+    .drop-zone svg {
+      width: 40px;
+      height: 40px;
+      fill: var(--text-muted);
+      margin-bottom: 12px;
+      transition: color 0.2s;
+    }
+
+    .drop-zone:hover svg {
+      fill: var(--accent);
+    }
+
+    .file-input { display: none; }
+
+    .file-label {
+      display: block;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .file-label span {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .btn {
+      width: 100%;
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn:hover:not(:disabled) {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn:disabled {
+      background: #475569;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+
+    /* Indicador de carga */
+    .spinner {
+      display: none;
+      width: 18px;
+      height: 18px;
+      border: 2.5px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Área de estado y progreso */
+    .status-card {
+      margin-top: 20px;
+      background: #0f172a;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 16px;
+      font-size: 0.875rem;
+    }
+
+    .progress-bar-bg {
+      width: 100%;
+      height: 6px;
+      background: #334155;
+      border-radius: 4px;
+      margin-top: 10px;
+      overflow: hidden;
+      display: none;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: width 0.3s ease;
+    }
+
+    .log-text {
+      color: var(--text-muted);
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .download-link {
+      display: inline-block;
+      margin-top: 12px;
+      background: var(--success);
+      color: white;
+      text-decoration: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+
+    .download-link:hover {
+      opacity: 0.9;
+    }
   </style>
 </head>
 <body>
 
-  <div class="card">
-    <h2>Subir archivos y crear ZIP</h2>
-    <input type="file" id="fileInput" multiple />
-    <br />
-    <button id="uploadBtn" onclick="processUploads()">Iniciar Subida y Generar ZIP</button>
+  <div class="container">
+    <div class="header">
+      <h1>Cargador Masivo & ZIP</h1>
+      <p>Sube múltiples archivos y descarga un único paquete comprimido</p>
+    </div>
 
-    <div id="status" class="log">Listo para seleccionar archivos.</div>
+    <div class="drop-zone" onclick="document.getElementById('fileInput').click()">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+      </svg>
+      <div class="file-label" id="fileLabel">
+        <span>Haz clic aquí</span> para seleccionar tus archivos
+      </div>
+      <input type="file" id="fileInput" class="file-input" multiple onchange="updateFileLabel()" />
+    </div>
+
+    <button id="uploadBtn" class="btn" onclick="processUploads()">
+      <div class="spinner" id="btnSpinner"></div>
+      <span id="btnText">Iniciar Subida y Generar ZIP</span>
+    </button>
+
+    <div class="status-card">
+      <div id="statusText" class="log-text">Listo para seleccionar archivos.</div>
+      <div class="progress-bar-bg" id="progressBg">
+        <div class="progress-bar-fill" id="progressFill"></div>
+      </div>
+      <div id="downloadContainer"></div>
+    </div>
   </div>
 
   <script>
@@ -34,14 +231,35 @@
     const API_BASE = isLocal ? 'http://127.0.0.1:4000' : '';
     const batchId = `lote_${Date.now()}`;
 
-    function log(msg) {
-      document.getElementById('status').innerText = msg;
+    function updateFileLabel() {
+      const input = document.getElementById('fileInput');
+      const label = document.getElementById('fileLabel');
+      const count = input.files.length;
+      if (count > 0) {
+        label.innerHTML = `Archivos seleccionados: <strong>${count}</strong>`;
+      } else {
+        label.innerHTML = `<span>Haz clic aquí</span> para seleccionar tus archivos`;
+      }
+    }
+
+    function setStatus(msg) {
+      document.getElementById('statusText').innerText = msg;
+    }
+
+    function setProgress(percent) {
+      const bg = document.getElementById('progressBg');
+      const fill = document.getElementById('progressFill');
+      bg.style.display = 'block';
+      fill.style.width = `${percent}%`;
     }
 
     async function processUploads() {
       const input = document.getElementById('fileInput');
       const files = Array.from(input.files || []);
       const btn = document.getElementById('uploadBtn');
+      const spinner = document.getElementById('btnSpinner');
+      const btnText = document.getElementById('btnText');
+      const downloadContainer = document.getElementById('downloadContainer');
 
       if (!files.length) {
         alert('Por favor selecciona al menos un archivo.');
@@ -49,11 +267,16 @@
       }
 
       btn.disabled = true;
+      spinner.style.display = 'block';
+      btnText.innerText = 'Procesando...';
+      downloadContainer.innerHTML = '';
+      
       const uploadedFiles = [];
+      setProgress(0);
 
       try {
         for (let i = 0; i < files.length; i++) {
-          log(`Subiendo (${i + 1}/${files.length}): ${files[i].name}...`);
+          setStatus(`Subiendo (${i + 1}/${files.length}): ${files[i].name}`);
           const formData = new FormData();
           formData.append('batchId', batchId);
           formData.append('file', files[i]);
@@ -63,37 +286,48 @@
             body: formData,
           });
 
-          if (!res.ok) throw new Error(`Error en subida de ${files[i].name}`);
+          if (!res.ok) throw new Error(`Error al subir ${files[i].name}`);
           const data = await res.json();
           uploadedFiles.push({ name: data.name, url: data.url });
+
+          const percent = Math.round(((i + 1) / files.length) * 80);
+          setProgress(percent);
         }
 
-        log('Todos los archivos subidos. Generando archivo ZIP...');
+        setStatus('Generando archivo ZIP comprimido...');
+        setProgress(90);
+
         const zipRes = await fetch(`${API_BASE}/api/create-zip`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ batchId, files: uploadedFiles }),
         });
 
-        if (!zipRes.ok) throw new Error('Error generando el archivo ZIP.');
+        if (!zipRes.ok) throw new Error('Error al empaquetar el archivo ZIP.');
 
         const zipBlob = await zipRes.blob();
         const zipFileName = `${batchId}.zip`;
         const blobUrl = URL.createObjectURL(zipBlob);
 
+        setProgress(100);
+        setStatus('¡Proceso completado con éxito!');
+
         const link = document.createElement('a');
         link.href = blobUrl;
         link.download = zipFileName;
-        link.innerText = `Descargar ${zipFileName}`;
+        link.className = 'download-link';
+        link.innerText = `📦 Descargar ${zipFileName}`;
+        downloadContainer.appendChild(link);
 
-        log('¡Éxito!\nEnlace ZIP:\n');
-        document.getElementById('status').appendChild(link);
+        // Disparar la descarga automática
         link.click();
 
       } catch (err) {
-        log(`Error: ${err.message}`);
+        setStatus(`Error: ${err.message}`);
       } finally {
         btn.disabled = false;
+        spinner.style.display = 'none';
+        btnText.innerText = 'Iniciar Subida y Generar ZIP';
       }
     }
   </script>
